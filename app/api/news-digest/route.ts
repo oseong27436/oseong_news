@@ -12,7 +12,9 @@ export async function GET(req: Request) {
   return NextResponse.json({ ok: true })
 }
 
-export async function POST() {
-  await sendDigest()
+export async function POST(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const chatId = searchParams.get('chat_id') ?? undefined
+  await sendDigest(chatId)
   return NextResponse.json({ ok: true })
 }
