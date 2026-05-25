@@ -117,53 +117,76 @@ async function fetchRSS(url: string): Promise<NewsItem[]> {
   }
 }
 
-async function pickAndSummarize(category: string, items: NewsItem[]): Promise<{ title: string; desc: string }[]> {
-  if (!items.length) return []
-  const list = items.slice(0, 20).map((item, i) =>
-    `${i + 1}. 제목: ${item.title}\n   내용: ${item.desc || '(본문 없음)'}`
-  ).join('\n\n')
+async function summarizeAllCategories(
+  feeds: { category: string; items: NewsItem[] }[]
+): Promise<Record<string, { title: string; desc: string }[]>> {
+  const sections = feeds
+    .filter(f => f.items.length > 0)
+    .map(f => {
+      const list = f.items.slice(0, 10).map((item, i) =>
+        `${i + 1}. 제목: ${item.title}\n   내용: ${item.desc || '(내용 없음)'}`
+      ).join('\n')
+      return `[${f.category}]\n${list}`
+    }).join('\n\n')
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'gpt-4o-mini',
-      max_tokens: 400,
+      max_tokens: 1200,
       messages: [
         { role: 'system', content: '너는 친근한 뉴스레터 에디터야. 독자에게 친구처럼 뉴스를 설명해줘. 딱딱하지 않고 자연스러운 말투로.' },
-        { role: 'user', content: `다음 ${category} 뉴스 목록에서 가장 중요하고 핫한 2개를 골라줘.\n각각 제목(20자 이내)과 친구한테 설명하듯 한 줄 설명(40자 이내)을 써줘.\n\n${list}\n\nJSON 배열로만 답해: [{"title": "제목", "desc": "설명"}, {"title": "제목", "desc": "설명"}]` },
+        {
+          role: 'user', content:
+            `다음 각 카테고리의 뉴스에서 가장 중요하고 핫한 2개씩 골라줘.\n` +
+            `각각 제목(20자 이내)과 친구한테 설명하듯 한 줄 설명(40자 이내)을 써줘.\n\n` +
+            `${sections}\n\n` +
+            `아래 JSON 형식으로만 답해:\n` +
+            `{"AI/개발":[{"title":"제목","desc":"설명"},...],"주식":[...],"부동산":[...],"정치":[...],"사회":[...]}`
+        },
       ],
     }),
   })
   const data = await res.json()
   const text = (data.choices?.[0]?.message?.content ?? '').trim()
   try {
-    const parsed = JSON.parse(text.includes('[') ? text.slice(text.indexOf('[')) : text)
-    return Array.isArray(parsed) ? parsed.slice(0, 2) : []
+    const start = text.indexOf('{')
+    const end = text.lastIndexOf('}')
+    const parsed = JSON.parse(text.slice(start, end + 1))
+    return parsed
   } catch {
-    return []
+    return {}
   }
 }
 
 export async function sendDigest(targetChatId?: string) {
   const chatId = targetChatId ?? TELEGRAM_CHAT_ID
 
-  const [weather, ...feedResults] = await Promise.all([
+  // RSS 전체 병렬 수집 + 날씨 동시 요청
+  const [weather, ...allItems] = await Promise.all([
     fetchWeather(),
     ...FEEDS.map(async (feed) => {
-      const allItems: NewsItem[] = []
+      const items: NewsItem[] = []
       for (const url of feed.urls) {
-        const items = await fetchRSS(url)
-        allItems.push(...items)
+        items.push(...await fetchRSS(url))
       }
-      const summaries = await pickAndSummarize(feed.category, allItems)
-      if (!summaries.length) return null
-      const lines = summaries.map(s => `• ${s.title}\n  └ ${s.desc}`).join('\n\n')
-      return `${feed.emoji} <b>${feed.category}</b>\n${lines}`
+      return { category: feed.category, emoji: feed.emoji, items }
     }),
   ])
 
-  const sections = feedResults.filter((s): s is string => s !== null)
+  // GPT 한 번만 호출
+  const summaryMap = await summarizeAllCategories(allItems as { category: string; items: NewsItem[] }[])
+
+  const sections = (allItems as { category: string; emoji: string; items: NewsItem[] }[])
+    .map(feed => {
+      const summaries = summaryMap[feed.category]
+      if (!summaries?.length) return null
+      const lines = summaries.map(s => `• ${s.title}\n  └ ${s.desc}`).join('\n\n')
+      return `${feed.emoji} <b>${feed.category}</b>\n${lines}`
+    })
+    .filter((s): s is string => s !== null)
+
   const now = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
   const newsText = `📋 <b>${now} 뉴스 브리핑</b>\n\n${sections.join('\n\n')}`
 
@@ -173,6 +196,6 @@ export async function sendDigest(targetChatId?: string) {
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
   })
 
-  await send(weather)
+  await send(weather as string)
   await send(newsText)
 }
