@@ -66,7 +66,7 @@ async function fetchRSS(url: string): Promise<NewsItem[]> {
       const block = itemMatch[1]
 
       const titleMatch = block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/)
-      const descMatch = block.match(/<description><!\[CDATA\[(.*?)\]\]><\/description>|<description>(.*?)<\/description>/s)
+      const descMatch = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>|<description>([\s\S]*?)<\/description>/)
 
       const title = (titleMatch?.[1] || titleMatch?.[2] || '').trim()
       const desc = (descMatch?.[1] || descMatch?.[2] || '')
