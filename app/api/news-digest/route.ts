@@ -13,8 +13,11 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const chatId = searchParams.get('chat_id') ?? undefined
+  let chatId: string | undefined
+  try {
+    const { searchParams } = new URL(req.url, 'https://oseongnews.vercel.app')
+    chatId = searchParams.get('chat_id') ?? undefined
+  } catch {}
   await sendDigest(chatId)
   return NextResponse.json({ ok: true })
 }
