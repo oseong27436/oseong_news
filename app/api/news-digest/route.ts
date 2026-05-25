@@ -45,6 +45,49 @@ const FEEDS: { category: string; emoji: string; urls: string[] }[] = [
   },
 ]
 
+const WEATHER_CODE: Record<number, { emoji: string; label: string }> = {
+  0: { emoji: '☀️', label: '맑음' },
+  1: { emoji: '🌤️', label: '대체로 맑음' },
+  2: { emoji: '⛅', label: '구름 조금' },
+  3: { emoji: '☁️', label: '흐림' },
+  45: { emoji: '🌫️', label: '안개' },
+  48: { emoji: '🌫️', label: '안개' },
+  51: { emoji: '🌦️', label: '이슬비' },
+  53: { emoji: '🌦️', label: '이슬비' },
+  55: { emoji: '🌧️', label: '이슬비 (강함)' },
+  61: { emoji: '🌧️', label: '비' },
+  63: { emoji: '🌧️', label: '비 (보통)' },
+  65: { emoji: '🌧️', label: '비 (강함)' },
+  71: { emoji: '🌨️', label: '눈' },
+  73: { emoji: '🌨️', label: '눈 (보통)' },
+  75: { emoji: '❄️', label: '눈 (강함)' },
+  80: { emoji: '🌦️', label: '소나기' },
+  81: { emoji: '🌧️', label: '소나기 (보통)' },
+  82: { emoji: '⛈️', label: '소나기 (강함)' },
+  95: { emoji: '⛈️', label: '뇌우' },
+  96: { emoji: '⛈️', label: '뇌우+우박' },
+  99: { emoji: '⛈️', label: '뇌우+우박' },
+}
+
+async function fetchWeather(): Promise<string> {
+  try {
+    const res = await fetch(
+      'https://api.open-meteo.com/v1/forecast?latitude=37.5596&longitude=126.9369&current=temperature_2m,precipitation,weathercode&timezone=Asia/Seoul',
+      { cache: 'no-store', signal: AbortSignal.timeout(5000) }
+    )
+    const data = await res.json()
+    const temp = Math.round(data.current.temperature_2m)
+    const code = data.current.weathercode
+    const precip = data.current.precipitation
+    const weather = WEATHER_CODE[code] ?? { emoji: '🌡️', label: '확인 불가' }
+
+    const rainMsg = precip > 0 ? ` · 강수 ${precip}mm` : ''
+    return `${weather.emoji} <b>오늘 신촌 날씨</b>: ${temp}°C, ${weather.label}${rainMsg}`
+  } catch {
+    return '🌡️ 날씨 정보를 불러오지 못했어요'
+  }
+}
+
 interface NewsItem {
   title: string
   desc: string
@@ -126,23 +169,24 @@ async function pickAndSummarize(category: string, items: NewsItem[]): Promise<{ 
 }
 
 async function sendDigest() {
-  const sections: string[] = []
-
-  for (const feed of FEEDS) {
-    const allItems: NewsItem[] = []
-    for (const url of feed.urls) {
-      const items = await fetchRSS(url)
-      allItems.push(...items)
-    }
-    const summaries = await pickAndSummarize(feed.category, allItems)
-    if (summaries.length) {
+  const [weather, ...feedResults] = await Promise.all([
+    fetchWeather(),
+    ...FEEDS.map(async (feed) => {
+      const allItems: NewsItem[] = []
+      for (const url of feed.urls) {
+        const items = await fetchRSS(url)
+        allItems.push(...items)
+      }
+      const summaries = await pickAndSummarize(feed.category, allItems)
+      if (!summaries.length) return null
       const lines = summaries.map(s => `• ${s.title}\n  └ ${s.desc}`).join('\n\n')
-      sections.push(`${feed.emoji} <b>${feed.category}</b>\n${lines}`)
-    }
-  }
+      return `${feed.emoji} <b>${feed.category}</b>\n${lines}`
+    }),
+  ])
 
+  const sections = feedResults.filter((s): s is string => s !== null)
   const now = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-  const text = `📋 <b>${now} 뉴스 브리핑</b>\n\n${sections.join('\n\n')}`
+  const text = `${weather}\n\n📋 <b>${now} 뉴스 브리핑</b>\n\n${sections.join('\n\n')}`
 
   await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
