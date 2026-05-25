@@ -162,11 +162,14 @@ export async function sendDigest(targetChatId?: string) {
 
   const sections = feedResults.filter((s): s is string => s !== null)
   const now = new Date().toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-  const text = `${weather}\n\n📋 <b>${now} 뉴스 브리핑</b>\n\n${sections.join('\n\n')}`
+  const newsText = `📋 <b>${now} 뉴스 브리핑</b>\n\n${sections.join('\n\n')}`
 
-  await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+  const send = (text: string) => fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
   })
+
+  await send(weather)
+  await send(newsText)
 }
