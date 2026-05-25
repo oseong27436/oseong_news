@@ -16,6 +16,11 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url, 'https://oseongnews.vercel.app')
     chatId = searchParams.get('chat_id') ?? undefined
   } catch {}
-  await sendDigest(chatId)
+  try {
+    await sendDigest(chatId)
+  } catch (e) {
+    console.error('sendDigest error:', e)
+    return NextResponse.json({ error: String(e) }, { status: 500 })
+  }
   return NextResponse.json({ ok: true })
 }
