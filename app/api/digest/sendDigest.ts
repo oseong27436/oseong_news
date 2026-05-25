@@ -7,35 +7,36 @@ const FEEDS: { category: string; emoji: string; urls: string[] }[] = [
     category: 'AI/개발',
     emoji: '🤖',
     urls: [
-      'https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=105',
-      'https://feeds.feedburner.com/TechCrunchAI',
+      'https://news.google.com/rss/search?q=인공지능+AI+개발&hl=ko&gl=KR&ceid=KR:ko',
     ],
   },
   {
     category: '주식',
     emoji: '📈',
     urls: [
-      'https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=101&sid2=258',
-      'https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=101&sid2=259',
+      'https://news.google.com/rss/search?q=주식+코스피+코스닥&hl=ko&gl=KR&ceid=KR:ko',
     ],
   },
   {
     category: '부동산',
     emoji: '🏠',
     urls: [
-      'https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=101&sid2=260',
-      'https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=101&sid2=261',
+      'https://news.google.com/rss/search?q=부동산+아파트+매매&hl=ko&gl=KR&ceid=KR:ko',
     ],
   },
   {
     category: '정치',
     emoji: '🏛️',
-    urls: ['https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=100'],
+    urls: [
+      'https://news.google.com/rss/search?q=정치+국회+대통령&hl=ko&gl=KR&ceid=KR:ko',
+    ],
   },
   {
     category: '사회',
     emoji: '📰',
-    urls: ['https://news.naver.com/main/rss/rss.naver?mid=shm&sid1=102'],
+    urls: [
+      'https://news.google.com/rss/search?q=사회+사건+사고&hl=ko&gl=KR&ceid=KR:ko',
+    ],
   },
 ]
 
@@ -101,7 +102,9 @@ async function fetchRSS(url: string): Promise<NewsItem[]> {
       const block = itemMatch[1]
       const titleMatch = block.match(/<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/)
       const descMatch = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>|<description>([\s\S]*?)<\/description>/)
-      const title = (titleMatch?.[1] || titleMatch?.[2] || '').trim()
+      const rawTitle = (titleMatch?.[1] || titleMatch?.[2] || '').trim()
+      // 구글 뉴스는 "제목 - 언론사" 형식이라 언론사 부분 제거
+      const title = rawTitle.replace(/\s*-\s*[^-]+$/, '').trim()
       const desc = (descMatch?.[1] || descMatch?.[2] || '')
         .replace(/<[^>]+>/g, '')
         .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
