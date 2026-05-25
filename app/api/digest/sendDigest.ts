@@ -14,28 +14,28 @@ const FEEDS: { category: string; emoji: string; urls: string[] }[] = [
     category: '주식',
     emoji: '📈',
     urls: [
-      'https://news.google.com/rss/search?q=주식+코스피+코스닥&hl=ko&gl=KR&ceid=KR:ko',
+      'https://www.yna.co.kr/rss/economy.xml',
     ],
   },
   {
     category: '부동산',
     emoji: '🏠',
     urls: [
-      'https://news.google.com/rss/search?q=부동산+아파트+매매&hl=ko&gl=KR&ceid=KR:ko',
+      'https://www.yna.co.kr/rss/industry.xml',
     ],
   },
   {
     category: '정치',
     emoji: '🏛️',
     urls: [
-      'https://news.google.com/rss/search?q=정치+국회+대통령&hl=ko&gl=KR&ceid=KR:ko',
+      'https://www.yna.co.kr/rss/politics.xml',
     ],
   },
   {
     category: '사회',
     emoji: '📰',
     urls: [
-      'https://news.google.com/rss/search?q=사회+사건+사고&hl=ko&gl=KR&ceid=KR:ko',
+      'https://www.yna.co.kr/rss/society.xml',
     ],
   },
 ]
