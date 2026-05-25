@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { sendDigest } from '../digest/sendDigest'
-
-export const maxDuration = 60
 
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN!
 
@@ -22,7 +21,9 @@ export async function POST(req: Request) {
 
     if (text.startsWith('/뉴스')) {
       await telegramReply(chatId, '📋 뉴스 브리핑 생성 중...')
-      await sendDigest(String(chatId))
+      after(async () => {
+        await sendDigest(String(chatId))
+      })
     } else if (text.startsWith('/start') || text.startsWith('/help')) {
       await telegramReply(chatId, '안녕하세요! 뉴스 브리핑 봇이에요 📋\n\n<b>/뉴스</b> — 지금 바로 뉴스 브리핑 받기')
     }
